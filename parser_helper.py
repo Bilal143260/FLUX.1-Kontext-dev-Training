@@ -70,6 +70,7 @@ def parse_args(input_args=None):
         "default, the standard Image Dataset maps out 'file_name' "
         "to 'image'.",
     )
+
     parser.add_argument(
         "--target_column",
         type=str,
@@ -78,6 +79,7 @@ def parse_args(input_args=None):
         "default, the standard Image Dataset maps out 'file_name' "
         "to 'image'.",
     )
+    
     parser.add_argument(
         "--caption_column",
         type=str,
