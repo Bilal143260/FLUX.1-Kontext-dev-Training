@@ -23,8 +23,7 @@ class KontextDataset(Dataset):
         self.target_column_name = target_column_name
         self.caption_column_name = caption_column_name
         self.size = size
-
-        self.buckets = buckets
+        
         # Load the dataset from HuggingFace Hub
         try:
             from datasets import load_dataset
