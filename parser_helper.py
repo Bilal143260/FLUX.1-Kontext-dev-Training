@@ -63,7 +63,15 @@ def parse_args(input_args=None):
     )
 
     parser.add_argument(
-        "--image_column",
+        "--source_column",
+        type=str,
+        default="image",
+        help="The column of the dataset containing the target image. By "
+        "default, the standard Image Dataset maps out 'file_name' "
+        "to 'image'.",
+    )
+    parser.add_argument(
+        "--target_column",
         type=str,
         default="image",
         help="The column of the dataset containing the target image. By "
