@@ -1,10 +1,9 @@
 from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.sampler import BatchSampler
 from torchvision import transforms
 import torch
 from PIL import Image
 
-class DreamBoothDataset(Dataset):
+class KontextDataset(Dataset):
     """
     A dataset to prepare the instance and class images with the prompts for fine-tuning the model.
     It pre-processes the images.
@@ -16,10 +15,8 @@ class DreamBoothDataset(Dataset):
         source_column_name,
         target_column_name,
         caption_column_name,
-        class_num=None,
-        repeats=1,
-        center_crop=False,
-        buckets=None,
+        size=(512, 512),
+        max_samples=None,
     ):
         self.dataset_name = dataset_name
         self.source_column_name = source_column_name
@@ -104,13 +101,11 @@ def collate_fn(batch):
 
 if __name__ == "__main__":
     # Create dataset instance with the updated parameters:
-    dataset = PosetoFlatlayDataset(
+    dataset = KontextDataset(
         dataset_name="raresense/Viton",
-        source_column_name="target",
         target_column_name="source",
+        source_column_name="target",
         caption_column_name="ai_name",
-        mask_local_path="mask_square.png",  # Local mask image file
-        # max_samples defaults to 5000, limiting the dataset to 5,000 samples.
     )
     
     # Print dataset length
