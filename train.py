@@ -65,7 +65,7 @@ from diffusers.utils import (
 from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_card
 from diffusers.utils.import_utils import is_torch_npu_available
 from diffusers.utils.torch_utils import is_compiled_module
-from data_module import DreamBoothDataset, collate_fn, PromptDataset
+from data_module import KontextDataset, collate_fn
 from utils import ( 
     import_model_class_from_model_name_or_path,
     tokenize_prompt,
@@ -552,7 +552,7 @@ def main(args):
     logger.info(f"Using parsed aspect ratio buckets: {buckets}")
 
     # Dataset and DataLoaders creation:
-    train_dataset = DreamBoothDataset(
+    train_dataset = KontextDataset(
         instance_data_root=args.instance_data_dir,
         instance_prompt=args.instance_prompt,
         class_prompt=args.class_prompt,
