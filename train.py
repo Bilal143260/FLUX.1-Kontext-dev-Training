@@ -874,6 +874,15 @@ def main(args):
                     width=model_input.shape[3],
                 )
 
+                #converting the source model input to packed latents which are basically patchfying and flattening the source model input
+                packed_source_model_input = FluxKontextPipeline._pack_latents(
+                    source_model_input,
+                    batch_size=source_model_input.shape[0],
+                    num_channels_latents=source_model_input.shape[1],
+                    height=source_model_input.shape[2],
+                    width=source_model_input.shape[3],
+                )
+
                 # handle guidance
                 if unwrap_model(transformer).config.guidance_embeds:
                     guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
@@ -881,9 +890,14 @@ def main(args):
                 else:
                     guidance = None
 
+                # concatenate the packed noisy model input with the packed source model input across channels dimensions
+                transformer_input = torch.cat(
+                    [packed_noisy_model_input, packed_source_model_input], dim=1
+                )
+
                 # Predict the noise residual
                 model_pred = transformer(
-                    hidden_states=packed_noisy_model_input,
+                    hidden_states=transformer_input,
                     # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transformer model (we should not keep it but I want to keep the inputs same for the model for testing)
                     timestep=timesteps / 1000,
                     guidance=guidance,
