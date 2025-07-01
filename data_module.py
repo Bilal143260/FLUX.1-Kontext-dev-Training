@@ -23,6 +23,10 @@ class KontextDataset(Dataset):
         self.target_column_name = target_column_name
         self.caption_column_name = caption_column_name
         self.size = size
+        if self.caption_column_name is None:
+            self.custom_instance_prompts = True
+        else:   
+            self.custom_instance_prompts = False
         
         # Load the dataset from HuggingFace Hub
         try:
