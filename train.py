@@ -557,6 +557,7 @@ def main(args):
         source_column_name=args.source_column,
         target_column_name=args.target_column,
         caption_column_name=args.caption_column,
+        size=(args.width, args.height)
     )
 
     train_dataloader = torch.utils.data.DataLoader(
@@ -845,6 +846,21 @@ def main(args):
                     accelerator.device,
                     weight_dtype,
                 )
+                print(f"latent_image_ids shape: {latent_image_ids.shape}")
+                ###########
+                image_ids = FluxKontextPipeline._prepare_latent_image_ids(
+                model_input.shape[0],
+                    model_input.shape[2] // 2,
+                    model_input.shape[3] // 2, accelerator.device,
+                    weight_dtype,
+                )
+                print(f"image_ids shape: {image_ids.shape}")
+                # image ids are the same as latent ids with the first dimension set to 1 instead of 0
+                image_ids[..., 0] = 1
+
+                latent_image_ids = torch.cat([latent_image_ids, image_ids], dim=0)  # dim 0 is sequence dimension
+                print(f"latent_image_ids shape after concatenation: {latent_image_ids.shape}")
+                ########
                 # Sample noise that we'll add to the latents
                 noise = torch.randn_like(model_input)
                 bsz = model_input.shape[0]
@@ -865,6 +881,7 @@ def main(args):
                 # zt = (1 - texp) * x + texp * z1
                 sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
                 noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise #adding noise on the target image
+                print(f"noisy_model_input shape: {noisy_model_input.shape}")
 
                 packed_noisy_model_input = FluxKontextPipeline._pack_latents(
                     noisy_model_input,
@@ -895,6 +912,13 @@ def main(args):
                     [packed_noisy_model_input, packed_source_model_input], dim=1
                 )
 
+                print(f"packed_noisy_model_input shape: {packed_noisy_model_input.shape}")
+                print(f"packed_source_model_input shape: {packed_source_model_input.shape}")
+                print(f"transformer_input shape: {transformer_input.shape}")
+                print(f"latent_image_ids shape: {latent_image_ids.shape}")
+                print(f"text_ids shape: {text_ids.shape}")
+                
+
                 # Predict the noise residual
                 model_pred = transformer(
                     hidden_states=transformer_input,
@@ -907,6 +931,9 @@ def main(args):
                     img_ids=latent_image_ids,
                     return_dict=False,
                 )[0]
+
+                # noise on only the target image
+                model_pred = model_pred[:, : packed_noisy_model_input.size(1)]
                 model_pred = FluxKontextPipeline._unpack_latents(
                     model_pred,
                     height=model_input.shape[2] * vae_scale_factor,
@@ -921,8 +948,6 @@ def main(args):
                 # flow matching loss
                 target = noise - model_input
 
-                # noise on only the target image
-                noise_pred = noise_pred[:, : packed_noisy_model_input.size(1)]
 
                 if args.with_prior_preservation:
                     # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
