@@ -821,13 +821,20 @@ def main(args):
                     else:
                         model_input = latents_cache[step].mode()
                 else:
-                    pixel_values = batch["pixel_values"].to(dtype=vae.dtype)
+                    # pixel_values = batch["pixel_values"].to(dtype=vae.dtype)
+                    pixel_values = batch["target_image"].to(dtype=vae.dtype) # target image
+                    source_pixel_values = batch["source_image"].to(dtype=vae.dtype) # source image
                     if args.vae_encode_mode == "sample":
-                        model_input = vae.encode(pixel_values).latent_dist.sample()
+                        model_input = vae.encode(pixel_values).latent_dist.sample() #target image
+                        source_model_input = vae.encode(source_pixel_values).latent_dist.sample() #source image
                     else:
                         model_input = vae.encode(pixel_values).latent_dist.mode()
+                        source_model_input = vae.encode(source_pixel_values).latent_dist.mode()
                 model_input = (model_input - vae_config_shift_factor) * vae_config_scaling_factor
                 model_input = model_input.to(dtype=weight_dtype)
+                # replicating the above code for the source images as well
+                source_model_input = (source_model_input - vae_config_shift_factor) * vae_config_scaling_factor
+                source_model_input = source_model_input.to(dtype=weight_dtype)
 
                 vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
 
@@ -857,7 +864,7 @@ def main(args):
                 # Add noise according to flow matching.
                 # zt = (1 - texp) * x + texp * z1
                 sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
-                noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise
+                noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise #adding noise on the target image
 
                 packed_noisy_model_input = FluxKontextPipeline._pack_latents(
                     noisy_model_input,
