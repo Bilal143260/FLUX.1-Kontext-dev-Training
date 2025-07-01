@@ -921,6 +921,9 @@ def main(args):
                 # flow matching loss
                 target = noise - model_input
 
+                # noise on only the target image
+                noise_pred = noise_pred[:, : packed_noisy_model_input.size(1)]
+
                 if args.with_prior_preservation:
                     # Chunk the noise and model_pred into two parts and compute the loss on each part separately.
                     model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
