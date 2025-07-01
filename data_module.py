@@ -71,11 +71,11 @@ class KontextDataset(Dataset):
         target_tensor = self.train_transforms(target_image)
         raw_caption = sample[self.caption_column_name]
         
-        # Return the concatenated image, mask, and caption in a dictionary
+        # Return the concatenated image, mask, and prompts in a dictionary
         example = {
             "target_image": target_tensor,
             "source_image": source_tensor,
-            "caption": raw_caption,
+            "prompts": raw_caption,
         }
         
         return example
@@ -93,13 +93,13 @@ def collate_fn(batch):
     """
     source_images = torch.stack([item['source_image'] for item in batch])
     target_images = torch.stack([item['target_image'] for item in batch])
-    captions = [item['caption'] for item in batch]
+    captions = [item['prompts'] for item in batch]
     
     
     return {
         "source_image": source_images, #conditioned on this 
         "target_image": target_images, # target_image (noise to be added on it)
-        "caption": captions,
+        "prompts": captions,
     }
 
 if __name__ == "__main__":
@@ -123,11 +123,11 @@ if __name__ == "__main__":
     print(f"Target image: {sample['target_image'].shape}")
     print(f"Mask: {sample['mask'].shape}")
     
-    # Print caption (truncated if too long)
-    caption = sample["caption"]
-    if len(caption) > 100:
-        caption = caption[:100] + "..."
-    print(f"\nCaption: {caption}")
+    # Print prompts (truncated if too long)
+    prompts = sample["prompts"]
+    if len(prompts) > 100:
+        prompts = prompts[:100] + "..."
+    print(f"\nCaption: {prompts}")
 
     # Create and test DataLoader with custom collate function
     batch_size = 4
@@ -147,10 +147,10 @@ if __name__ == "__main__":
     print(f"Target images: {batch['target_image'].shape}")
     print(f"Masks: {batch['mask'].shape}")
     print(f"Sources: {batch['source_image'].shape}")
-    print(f"Number of captions: {len(batch['caption'])}")
+    print(f"Number of captions: {len(batch['prompts'])}")
     
-    # Print first caption in batch
-    first_caption = batch['caption'][0]
+    # Print first prompts in batch
+    first_caption = batch['prompts'][0]
     if len(first_caption) > 100:
         first_caption = first_caption
-    print(f"First caption in batch: {first_caption}")
+    print(f"First prompts in batch: {first_caption}")
