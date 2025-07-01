@@ -96,13 +96,13 @@ def parse_args(input_args=None):
         required=False,
         help="A folder containing the training data of class images.",
     )
-    parser.add_argument(
-        "--instance_prompt",
-        type=str,
-        default=None,
-        required=True,
-        help="The prompt with identifier specifying the instance, e.g. 'photo of a TOK dog', 'in the style of TOK'",
-    )
+    # parser.add_argument(
+    #     "--instance_prompt",
+    #     type=str,
+    #     default=None,
+    #     required=True,
+    #     help="The prompt with identifier specifying the instance, e.g. 'photo of a TOK dog', 'in the style of TOK'",
+    # )
     parser.add_argument(
         "--class_prompt",
         type=str,
@@ -173,6 +173,13 @@ def parse_args(input_args=None):
         help="The output directory where the model predictions and checkpoints will be written.",
     )
     parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
+
+    parser.add_argument(
+        "--width", type=int, default=512, help="The width for generated image"
+    )
+    parser.add_argument(
+        "--height", type=int, default=512, help="The height for generated image"
+    )
     parser.add_argument(
         "--resolution",
         type=int,
