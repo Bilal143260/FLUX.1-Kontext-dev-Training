@@ -15,7 +15,7 @@ accelerate launch train.py \
   --source_column=$SOURCE_COLUMN \
   --target_column=$TARGET_COLUMN \
   --caption_column=$CAPTION_COLUMN \
-  --validation_check="True" \
+  --validation_check=True \
   --mixed_precision="bf16" \
   --train_batch_size=1 \
   --guidance_scale=1 \
