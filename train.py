@@ -594,7 +594,7 @@ def main(args):
 
     if args.validation_check:
         validation_dataset = KontextDataset(
-            dataset_name=args.dataset_name,
+            dataset_name=args.validation_dataset_name,
             source_column_name=args.source_column,
             target_column_name=args.target_column,
             caption_column_name=args.caption_column,
