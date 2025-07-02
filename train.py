@@ -810,7 +810,6 @@ def main(args):
         transformer.train()
         if args.train_text_encoder:
             text_encoder_one.train()
-            # set top parameter requires_grad = True for gradient checkpointing works
             unwrap_model(text_encoder_one).text_model.embeddings.requires_grad_(True)
 
         for step, batch in enumerate(train_dataloader):
@@ -1057,44 +1056,44 @@ def main(args):
                         accelerator.save_state(save_path)
                         logger.info(f"Saved state to {save_path}")
 
-            logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
-            progress_bar.set_postfix(**logs)
-            accelerator.log(logs, step=global_step)
+                    # Move validation check HERE - inside the sync_gradients block
+                    if args.validation_check and global_step % args.validation_steps == 0:
+                        # create pipeline
+                        if not args.train_text_encoder:
+                            text_encoder_one, text_encoder_two = load_text_encoders(text_encoder_cls_one, text_encoder_cls_two)
+                            text_encoder_one.to(weight_dtype)
+                            text_encoder_two.to(weight_dtype)
+                        pipeline = FluxKontextPipeline.from_pretrained(
+                            args.pretrained_model_name_or_path,
+                            vae=vae,
+                            text_encoder=unwrap_model(text_encoder_one),
+                            text_encoder_2=unwrap_model(text_encoder_two),
+                            transformer=unwrap_model(transformer),
+                            revision=args.revision,
+                            variant=args.variant,
+                            torch_dtype=weight_dtype,
+                        )
 
-            if global_step >= args.max_train_steps:
-                break
+                        images = log_validation(
+                            pipeline=pipeline,
+                            args=args,
+                            accelerator=accelerator,
+                            tag="validation",
+                            dataloader=validation_dataloader
+                        )
+                        if not args.train_text_encoder:
+                            del text_encoder_one, text_encoder_two
+                            free_memory()
 
-        if accelerator.is_main_process:
-            if args.validation_check is not None and epoch % args.validation_epochs == 0:
-                # create pipeline
-                if not args.train_text_encoder:
-                    text_encoder_one, text_encoder_two = load_text_encoders(text_encoder_cls_one, text_encoder_cls_two)
-                    text_encoder_one.to(weight_dtype)
-                    text_encoder_two.to(weight_dtype)
-                pipeline = FluxKontextPipeline.from_pretrained(
-                    args.pretrained_model_name_or_path,
-                    vae=vae,
-                    text_encoder=unwrap_model(text_encoder_one),
-                    text_encoder_2=unwrap_model(text_encoder_two),
-                    transformer=unwrap_model(transformer),
-                    revision=args.revision,
-                    variant=args.variant,
-                    torch_dtype=weight_dtype,
-                )
+                        images = None
+                        free_memory()
 
-                images = log_validation(
-                    pipeline=pipeline,
-                    args=args,
-                    accelerator=accelerator,
-                    tag="validation",
-                    dataloader=validation_dataloader
-                )
-                if not args.train_text_encoder:
-                    del text_encoder_one, text_encoder_two
-                    free_memory()
+        logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+        progress_bar.set_postfix(**logs)
+        accelerator.log(logs, step=global_step)
 
-                images = None
-                free_memory()
+        if global_step >= args.max_train_steps:
+            break
 
     # Save the lora layers
     accelerator.wait_for_everyone()

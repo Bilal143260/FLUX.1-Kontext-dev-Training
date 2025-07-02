@@ -1,9 +1,9 @@
 # Define variables for columns
 export SOURCE_COLUMN="source"
 export TARGET_COLUMN="target"
-export CAPTION_COLUMN="item"
+export CAPTION_COLUMN="ai_name"
 export MODEL_NAME="black-forest-labs/FLUX.1-Kontext-dev"
-export TRAIN_DATASET_NAME="raresense/Viton_HD"
+export TRAIN_DATASET_NAME="raresense/Viton"
 export VAL_DATASET_NAME="raresense/Viton_validation"
 export OUTPUT_DIR="saved_weights"
 
@@ -15,8 +15,6 @@ accelerate launch train.py \
   --source_column=$SOURCE_COLUMN \
   --target_column=$TARGET_COLUMN \
   --caption_column=$CAPTION_COLUMN \
-  --validation_check=True \
-  --validation_steps=50 \
   --mixed_precision="bf16" \
   --train_batch_size=1 \
   --guidance_scale=1 \
@@ -27,11 +25,13 @@ accelerate launch train.py \
   --learning_rate=1e-5 \
   --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
-  --max_train_steps=5000 \
+  --max_train_steps=10 \
   --seed="42" \
   --height=512 \
   --width=512 \
   --max_sequence_length=512  \
   --checkpointing_steps=2500  \
+  --validation_check \
+  --validation_steps=5
   # --report_to="wandb" \
   # --resume_from_checkpoint="latest"  \
