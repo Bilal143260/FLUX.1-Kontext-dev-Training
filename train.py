@@ -68,7 +68,8 @@ from data_module import KontextDataset, collate_fn
 from utils import ( 
     import_model_class_from_model_name_or_path,
     tokenize_prompt,
-    encode_prompt
+    encode_prompt,
+    save_model_card
 )
 
 if is_wandb_available():
@@ -93,57 +94,83 @@ def load_text_encoders(class_one, class_two):
     )
     return text_encoder_one, text_encoder_two
 
-
 def log_validation(
     pipeline,
     args,
     accelerator,
-    pipeline_args,
-    epoch,
-    torch_dtype,
+    dataloader,
+    tag,
     is_final_validation=False,
 ):
-    logger.info(
-        f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
-        f" {args.validation_prompt}."
-    )
-    pipeline = pipeline.to(accelerator.device, dtype=torch_dtype)
-    pipeline.set_progress_bar_config(disable=True)
+    logger.info(f"Running {tag}... \n ")
+
+    pipeline = pipeline.to(accelerator.device)
+    # Use appropriate precision context
+    if accelerator.mixed_precision == "bf16":
+        autocast_ctx = torch.autocast("cuda", dtype=torch.bfloat16)
+    elif accelerator.mixed_precision == "fp16":
+        autocast_ctx = torch.autocast("cuda", dtype=torch.float16)
+    else:
+        autocast_ctx = nullcontext()
 
     # run inference
-    generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed is not None else None
-    autocast_ctx = torch.autocast(accelerator.device.type) if not is_final_validation else nullcontext()
+    generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
+    
+    with autocast_ctx:
+        images = []
+        prompts = []
+        control_images = []
+        target_images = []
+        
+        # Process full dataset - no limit on samples for validation
+        # This ensures we use all images from the test dataset
+        
+        for batch in dataloader:
+            prompt = batch['prompts']
+            control_image = batch['source_image']
+            target_image = batch['target_image']
+            
+            # Process in smaller batches to avoid memory issues
+            validation_batch_size = max(1, args.train_batch_size // 2)  # Reduce batch size for validation
+            
+            for i in range(0, len(prompt), validation_batch_size):
+                batch_prompt = prompt[i:i+validation_batch_size]
+                batch_control_image = control_image[i:i+validation_batch_size]
+                batch_target_image = target_image[i:i+validation_batch_size]
+                
+                result = pipeline(
+                    prompt=batch_prompt,
+                    height=args.height,
+                    width=args.width,
+                    image=batch_control_image, 
+                    # num_inference_steps=28,
+                    generator=generator,
+                    # guidance_scale=30,
+                ).images
+                
+                images.extend(result)
+                prompts.extend(batch_prompt)
+                control_images.extend(batch_control_image)
+                target_images.extend(batch_target_image)
 
-    # pre-calculate  prompt embeds, pooled prompt embeds, text ids because t5 does not support autocast
-    with torch.no_grad():
-        prompt_embeds, pooled_prompt_embeds, text_ids = pipeline.encode_prompt(
-            pipeline_args["prompt"], prompt_2=pipeline_args["prompt"]
-        )
-    images = []
-    for _ in range(args.num_validation_images):
-        with autocast_ctx:
-            image = pipeline(
-                prompt_embeds=prompt_embeds, pooled_prompt_embeds=pooled_prompt_embeds, generator=generator
-            ).images[0]
-            images.append(image)
-
+    # Log to trackers
+    tracker_key = "test" if is_final_validation else "validation"
     for tracker in accelerator.trackers:
-        phase_name = "test" if is_final_validation else "validation"
-        if tracker.name == "tensorboard":
-            np_images = np.stack([np.asarray(img) for img in images])
-            tracker.writer.add_images(phase_name, np_images, epoch, dataformats="NHWC")
         if tracker.name == "wandb":
-            tracker.log(
-                {
-                    phase_name: [
-                        wandb.Image(image, caption=f"{i}: {args.validation_prompt}") for i, image in enumerate(images)
-                    ]
-                }
-            )
-
+            formatted_images = []
+            
+            for input_img, mask_img, gen_img, tgt_img, prompt in zip(control_images, images, target_images, prompts):
+                formatted_images.append(wandb.Image(input_img, caption="Source Image"))
+                formatted_images.append(wandb.Image(tgt_img, caption="Target Image"))
+                formatted_images.append(wandb.Image(gen_img, caption=prompt))
+            
+            tracker.log({tracker_key: formatted_images})
+    
     del pipeline
     free_memory()
-
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
     return images
 
 def main(args):
@@ -561,6 +588,20 @@ def main(args):
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
+        collate_fn=collate_fn,
+        num_workers=args.dataloader_num_workers,
+    )
+
+    validation_dataset = KontextDataset(
+        dataset_name=args.dataset_name,
+        source_column_name=args.source_column,
+        target_column_name=args.target_column,
+        caption_column_name=args.caption_column,
+        size=(args.width, args.height)
+    )
+
+    validation_dataloader = torch.utils.data.DataLoader(
+        validation_dataset,
         collate_fn=collate_fn,
         num_workers=args.dataloader_num_workers,
     )
@@ -1046,9 +1087,8 @@ def main(args):
                     pipeline=pipeline,
                     args=args,
                     accelerator=accelerator,
-                    pipeline_args=pipeline_args,
-                    epoch=epoch,
-                    torch_dtype=weight_dtype,
+                    tag="validation",
+                    dataloader=validation_dataloader
                 )
                 if not args.train_text_encoder:
                     del text_encoder_one, text_encoder_two
@@ -1103,14 +1143,13 @@ def main(args):
         if args.validation_prompt and args.num_validation_images > 0:
             pipeline_args = {"prompt": args.validation_prompt}
             images = log_validation(
-                pipeline=pipeline,
-                args=args,
-                accelerator=accelerator,
-                pipeline_args=pipeline_args,
-                epoch=epoch,
-                is_final_validation=True,
-                torch_dtype=weight_dtype,
-            )
+                    pipeline=pipeline,
+                    args=args,
+                    accelerator=accelerator,
+                    tag="Test",
+                    dataloader=validation_dataloader,
+                    is_final_inference=True
+                )
             del pipeline
             free_memory()
 
