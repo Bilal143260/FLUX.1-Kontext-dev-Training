@@ -592,21 +592,20 @@ def main(args):
         num_workers=args.dataloader_num_workers,
     )
 
-    validation_dataset = KontextDataset(
-        dataset_name=args.dataset_name,
-        source_column_name=args.source_column,
-        target_column_name=args.target_column,
-        caption_column_name=args.caption_column,
-        size=(args.width, args.height)
-    )
+    if args.validation_check:
+        validation_dataset = KontextDataset(
+            dataset_name=args.dataset_name,
+            source_column_name=args.source_column,
+            target_column_name=args.target_column,
+            caption_column_name=args.caption_column,
+            size=(args.width, args.height)
+        )
 
-    validation_dataloader = torch.utils.data.DataLoader(
-        validation_dataset,
-        collate_fn=collate_fn,
-        num_workers=args.dataloader_num_workers,
-    )
-
-    #TODO: will add validation dataset and dataloader later
+        validation_dataloader = torch.utils.data.DataLoader(
+            validation_dataset,
+            collate_fn=collate_fn,
+            num_workers=args.dataloader_num_workers,
+        )
 
     if not args.train_text_encoder:
         tokenizers = [tokenizer_one, tokenizer_two]
@@ -682,7 +681,7 @@ def main(args):
                 )
                 latents_cache.append(vae.encode(batch["pixel_values"]).latent_dist)
 
-        if args.validation_prompt is None:
+        if args.validation_check is None:
             del vae
             free_memory()
 
@@ -1066,7 +1065,7 @@ def main(args):
                 break
 
         if accelerator.is_main_process:
-            if args.validation_prompt is not None and epoch % args.validation_epochs == 0:
+            if args.validation_check is not None and epoch % args.validation_epochs == 0:
                 # create pipeline
                 if not args.train_text_encoder:
                     text_encoder_one, text_encoder_two = load_text_encoders(text_encoder_cls_one, text_encoder_cls_two)
@@ -1082,7 +1081,7 @@ def main(args):
                     variant=args.variant,
                     torch_dtype=weight_dtype,
                 )
-                pipeline_args = {"prompt": args.validation_prompt}
+
                 images = log_validation(
                     pipeline=pipeline,
                     args=args,
@@ -1140,8 +1139,7 @@ def main(args):
 
         # run inference
         images = []
-        if args.validation_prompt and args.num_validation_images > 0:
-            pipeline_args = {"prompt": args.validation_prompt}
+        if args.validation_check and args.num_validation_images > 0:
             images = log_validation(
                     pipeline=pipeline,
                     args=args,
@@ -1160,7 +1158,7 @@ def main(args):
                 base_model=args.pretrained_model_name_or_path,
                 train_text_encoder=args.train_text_encoder,
                 instance_prompt=args.instance_prompt,
-                validation_prompt=args.validation_prompt,
+                validation_prompt=args.validation_prompt, #TODO: Fix this
                 repo_folder=args.output_dir,
             )
             upload_folder(
