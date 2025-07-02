@@ -43,6 +43,21 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
+        "--validation_dataset_name",
+        type=str,
+        default=None,
+        help=(
+            "The name of the Dataset (from the HuggingFace hub) containing the validation data of instance images (could be your own, possibly private,"
+            " dataset). It can also be a path pointing to a local copy of a dataset in your filesystem,"
+            " or to a folder containing files that 🤗 Datasets can understand."
+        ),
+    )
+    parser.add_argument(
+        "--validation_check",
+        action="store_true",
+        default=True,
+    )
+    parser.add_argument(
         "--dataset_config_name",
         type=str,
         default=None,
