@@ -143,7 +143,7 @@ def parse_args(input_args=None):
         help="Number of images that should be generated during validation with `validation_prompt`.",
     )
     parser.add_argument(
-        "--validation_epochs",
+        "--validation_steps",
         type=int,
         default=50,
         help=(
