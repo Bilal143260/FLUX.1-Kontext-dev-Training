@@ -17,6 +17,7 @@ accelerate launch train.py \
   --mixed_precision="bf16" \
   --train_batch_size=1 \
   --guidance_scale=1 \
+  --rank=128 \
   --gradient_accumulation_steps=8 \
   --optimizer="adamw" \
   --use_8bit_adam \
