@@ -51,6 +51,27 @@ class KontextDataset(Dataset):
             ]
         )
 
+    def _convert_to_pil(self, image_data):
+        """
+        Convert image data to PIL Image if it's in dict format.
+        """
+        if isinstance(image_data, dict):
+            # If it's a dict, it likely has 'bytes' or similar key
+            if 'bytes' in image_data:
+                from io import BytesIO
+                return Image.open(BytesIO(image_data['bytes']))
+            elif 'path' in image_data:
+                return Image.open(image_data['path'])
+            else:
+                # Try to find the actual image data in the dict
+                for key, value in image_data.items():
+                    if hasattr(value, 'mode') or (hasattr(value, 'read') and callable(value.read)):
+                        return value
+                raise ValueError(f"Cannot convert dict to PIL Image: {image_data}")
+        else:
+            # Assume it's already a PIL Image or compatible
+            return image_data
+
     def __len__(self):
         return self._length
 
@@ -59,11 +80,14 @@ class KontextDataset(Dataset):
         sample = self.dataset["train"][index]
         source_image = sample[self.source_column_name]
         target_image = sample[self.target_column_name]
+        # Convert to PIL Images if they're in dict format
+        source_image = self._convert_to_pil(source_image)
+        target_image = self._convert_to_pil(target_image)
         
         # Convert image modes if needed
-        if source_image.mode != "RGB":
+        if not source_image.mode == "RGB":
             source_image = source_image.convert("RGB")
-        if target_image.mode != "RGB":
+        if not target_image.mode == "RGB":
             target_image = target_image.convert("RGB")
         
         # Apply transformations

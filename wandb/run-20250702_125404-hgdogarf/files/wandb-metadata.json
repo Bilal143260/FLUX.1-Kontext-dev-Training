@@ -1,0 +1,70 @@
+{
+  "os": "Linux-6.8.0-1030-azure-x86_64-with-glibc2.35",
+  "python": "CPython 3.10.12",
+  "startedAt": "2025-07-02T12:54:04.312376Z",
+  "args": [
+    "--pretrained_model_name_or_path=black-forest-labs/FLUX.1-Kontext-dev",
+    "--output_dir=SAKS_Lora_Training_Kontext_dev",
+    "--dataset_name=raresense/SAKS_Jewelry",
+    "--validation_dataset_name=raresense/SAKS_Jewelry_test",
+    "--source_column=ghost_image",
+    "--target_column=target",
+    "--caption_column=Prompt",
+    "--mixed_precision=bf16",
+    "--train_batch_size=1",
+    "--guidance_scale=1",
+    "--rank=128",
+    "--gradient_accumulation_steps=8",
+    "--optimizer=adamw",
+    "--use_8bit_adam",
+    "--learning_rate=1e-5",
+    "--lr_scheduler=constant",
+    "--lr_warmup_steps=0",
+    "--max_train_steps=10000",
+    "--seed=42",
+    "--height=512",
+    "--width=512",
+    "--max_sequence_length=512",
+    "--checkpointing_steps=2000",
+    "--validation_check",
+    "--validation_steps=1000",
+    "--report_to=wandb"
+  ],
+  "program": "/home/bilal/FLUX.1-Kontext-dev-Training/train.py",
+  "codePath": "train.py",
+  "git": {
+    "remote": "https://github.com/Bilal143260/FLUX.1-Kontext-dev-Training.git",
+    "commit": "a862cefad95b15707489f7bed0806581334c96b1"
+  },
+  "email": "bilal@raresense.so",
+  "root": "/home/bilal/FLUX.1-Kontext-dev-Training",
+  "host": "A1001ModelTraining",
+  "executable": "/home/bilal/catvton-flux-try-on/.venv/bin/python3",
+  "codePathLocal": "train.py",
+  "cpu_count": 24,
+  "cpu_count_logical": 24,
+  "gpu": "NVIDIA A100 80GB PCIe",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "1065418129408",
+      "used": "1038279598080"
+    }
+  },
+  "memory": {
+    "total": "232209723392"
+  },
+  "cpu": {
+    "count": 24,
+    "countLogical": 24
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA A100 80GB PCIe",
+      "memoryTotal": "85899345920",
+      "cudaCores": 6912,
+      "architecture": "Ampere"
+    }
+  ],
+  "cudaVersion": "12.4"
+}

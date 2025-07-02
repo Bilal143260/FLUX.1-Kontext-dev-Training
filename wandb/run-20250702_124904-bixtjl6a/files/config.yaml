@@ -1,0 +1,200 @@
+_wandb:
+    value:
+        cli_version: 0.19.5
+        m: []
+        python_version: 3.10.12
+        t:
+            "1":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 51
+                - 55
+                - 71
+                - 83
+                - 98
+                - 105
+            "2":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 51
+                - 55
+                - 71
+                - 83
+                - 98
+                - 105
+            "3":
+                - 23
+                - 55
+            "4": 3.10.12
+            "5": 0.19.5
+            "6": 4.53.0
+            "8":
+                - 5
+            "12": 0.19.5
+            "13": linux-x86_64
+adam_beta1:
+    value: 0.9
+adam_beta2:
+    value: 0.999
+adam_epsilon:
+    value: 1e-08
+adam_weight_decay:
+    value: 0.0001
+adam_weight_decay_text_encoder:
+    value: 0.001
+allow_tf32:
+    value: false
+aspect_ratio_buckets:
+    value: null
+cache_dir:
+    value: null
+cache_latents:
+    value: false
+caption_column:
+    value: Prompt
+center_crop:
+    value: false
+checkpointing_steps:
+    value: 2000
+checkpoints_total_limit:
+    value: null
+class_data_dir:
+    value: null
+class_prompt:
+    value: null
+dataloader_num_workers:
+    value: 0
+dataset_config_name:
+    value: null
+dataset_name:
+    value: raresense/SAKS_Jewelry
+gradient_accumulation_steps:
+    value: 8
+gradient_checkpointing:
+    value: false
+guidance_scale:
+    value: 1
+height:
+    value: 512
+hub_model_id:
+    value: null
+hub_token:
+    value: null
+instance_data_dir:
+    value: null
+learning_rate:
+    value: 1e-05
+local_rank:
+    value: -1
+logging_dir:
+    value: logs
+logit_mean:
+    value: 0
+logit_std:
+    value: 1
+lora_alpha:
+    value: 4
+lora_dropout:
+    value: 0
+lora_layers:
+    value: null
+lr_num_cycles:
+    value: 1
+lr_power:
+    value: 1
+lr_scheduler:
+    value: constant
+lr_warmup_steps:
+    value: 0
+max_grad_norm:
+    value: 1
+max_sequence_length:
+    value: 512
+max_train_steps:
+    value: 10000
+mixed_precision:
+    value: bf16
+mode_scale:
+    value: 1.29
+num_class_images:
+    value: 100
+num_train_epochs:
+    value: 40
+num_validation_images:
+    value: 4
+optimizer:
+    value: adamw
+output_dir:
+    value: SAKS_Lora_Training_Kontext_dev
+pretrained_model_name_or_path:
+    value: black-forest-labs/FLUX.1-Kontext-dev
+prior_generation_precision:
+    value: null
+prior_loss_weight:
+    value: 1
+prodigy_beta3:
+    value: null
+prodigy_decouple:
+    value: true
+prodigy_safeguard_warmup:
+    value: true
+prodigy_use_bias_correction:
+    value: true
+push_to_hub:
+    value: false
+random_flip:
+    value: false
+rank:
+    value: 128
+repeats:
+    value: 1
+report_to:
+    value: wandb
+resolution:
+    value: 512
+resume_from_checkpoint:
+    value: null
+revision:
+    value: null
+sample_batch_size:
+    value: 4
+scale_lr:
+    value: false
+seed:
+    value: 42
+source_column:
+    value: ghost_image
+target_column:
+    value: target
+text_encoder_lr:
+    value: 5e-06
+train_batch_size:
+    value: 1
+train_text_encoder:
+    value: false
+upcast_before_saving:
+    value: false
+use_8bit_adam:
+    value: true
+vae_encode_mode:
+    value: mode
+validation_check:
+    value: true
+validation_dataset_name:
+    value: raresense/SAKS_Jewelry_test
+validation_prompt:
+    value: null
+validation_steps:
+    value: 1000
+variant:
+    value: null
+weighting_scheme:
+    value: none
+width:
+    value: 512
+with_prior_preservation:
+    value: false

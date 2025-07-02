@@ -742,7 +742,7 @@ def main(args):
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
-        tracker_name = "dreambooth-flux-dev-lora"
+        tracker_name = "SAKS_Lora_Training_Kontext_dev"
         accelerator.init_trackers(tracker_name, config=vars(args))
 
     # Train!
@@ -884,7 +884,7 @@ def main(args):
                     accelerator.device,
                     weight_dtype,
                 )
-                print(f"latent_image_ids shape: {latent_image_ids.shape}")
+                # print(f"latent_image_ids shape: {latent_image_ids.shape}")
                 ###########
                 image_ids = FluxKontextPipeline._prepare_latent_image_ids(
                 model_input.shape[0],
@@ -892,12 +892,12 @@ def main(args):
                     model_input.shape[3] // 2, accelerator.device,
                     weight_dtype,
                 )
-                print(f"image_ids shape: {image_ids.shape}")
+                # print(f"image_ids shape: {image_ids.shape}")
                 # image ids are the same as latent ids with the first dimension set to 1 instead of 0
                 image_ids[..., 0] = 1
 
                 latent_image_ids = torch.cat([latent_image_ids, image_ids], dim=0)  # dim 0 is sequence dimension
-                print(f"latent_image_ids shape after concatenation: {latent_image_ids.shape}")
+                # print(f"latent_image_ids shape after concatenation: {latent_image_ids.shape}")
                 ########
                 # Sample noise that we'll add to the latents
                 noise = torch.randn_like(model_input)
@@ -919,7 +919,7 @@ def main(args):
                 # zt = (1 - texp) * x + texp * z1
                 sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
                 noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise #adding noise on the target image
-                print(f"noisy_model_input shape: {noisy_model_input.shape}")
+                # print(f"noisy_model_input shape: {noisy_model_input.shape}")
 
                 packed_noisy_model_input = FluxKontextPipeline._pack_latents(
                     noisy_model_input,
@@ -950,11 +950,11 @@ def main(args):
                     [packed_noisy_model_input, packed_source_model_input], dim=1
                 )
 
-                print(f"packed_noisy_model_input shape: {packed_noisy_model_input.shape}")
-                print(f"packed_source_model_input shape: {packed_source_model_input.shape}")
-                print(f"transformer_input shape: {transformer_input.shape}")
-                print(f"latent_image_ids shape: {latent_image_ids.shape}")
-                print(f"text_ids shape: {text_ids.shape}")
+                # print(f"packed_noisy_model_input shape: {packed_noisy_model_input.shape}")
+                # print(f"packed_source_model_input shape: {packed_source_model_input.shape}")
+                # print(f"transformer_input shape: {transformer_input.shape}")
+                # print(f"latent_image_ids shape: {latent_image_ids.shape}")
+                # print(f"text_ids shape: {text_ids.shape}")
                 
 
                 # Predict the noise residual
