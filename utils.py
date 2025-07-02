@@ -1,5 +1,7 @@
 from transformers import PretrainedConfig
 import torch
+from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_card
+import os
 
 def import_model_class_from_model_name_or_path(
     pretrained_model_name_or_path: str, revision: str, subfolder: str = "text_encoder"
