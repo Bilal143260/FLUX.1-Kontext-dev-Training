@@ -159,7 +159,7 @@ def log_validation(
         if tracker.name == "wandb":
             formatted_images = []
             
-            for input_img, mask_img, gen_img, tgt_img, prompt in zip(control_images, images, target_images, prompts):
+            for input_img, gen_img, tgt_img, prompt in zip(control_images, images, target_images, prompts):
                 formatted_images.append(wandb.Image(input_img, caption="Source Image"))
                 formatted_images.append(wandb.Image(tgt_img, caption="Target Image"))
                 formatted_images.append(wandb.Image(gen_img, caption=prompt))
