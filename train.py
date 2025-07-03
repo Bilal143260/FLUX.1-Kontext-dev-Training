@@ -103,7 +103,6 @@ def log_validation(
     is_final_validation=False,
 ):
     logger.info(f"Running {tag}... \n ")
-
     pipeline = pipeline.to(accelerator.device)
     # Use appropriate precision context
     if accelerator.mixed_precision == "bf16":
@@ -170,7 +169,6 @@ def log_validation(
     free_memory()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    
     return images
 
 def main(args):
@@ -1059,6 +1057,9 @@ def main(args):
                     # Move validation check HERE - inside the sync_gradients block
                     if args.validation_check and global_step % args.validation_steps == 0:
                         # create pipeline
+                        free_memory()
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
                         if not args.train_text_encoder:
                             text_encoder_one, text_encoder_two = load_text_encoders(text_encoder_cls_one, text_encoder_cls_two)
                             text_encoder_one.to(weight_dtype)
@@ -1123,32 +1124,36 @@ def main(args):
 
         # Final inference
         # Load previous pipeline
-        transformer = FluxTransformer2DModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="transformer", revision=args.revision, variant=args.variant
-        )
-        pipeline = FluxKontextPipeline.from_pretrained(
-            args.pretrained_model_name_or_path,
-            transformer=transformer,
-            revision=args.revision,
-            variant=args.variant,
-            torch_dtype=weight_dtype,
-        )
-        # load attention processors
-        pipeline.load_lora_weights(args.output_dir)
+        # free_memory()
+        # if torch.cuda.is_available():
+        #     torch.cuda.empty_cache()
+        # transformer = FluxTransformer2DModel.from_pretrained(
+        #     args.pretrained_model_name_or_path, subfolder="transformer", revision=args.revision, variant=args.variant
+        # )
+        # pipeline = FluxKontextPipeline.from_pretrained(
+        #     args.pretrained_model_name_or_path,
+        #     transformer=transformer,
+        #     revision=args.revision,
+        #     variant=args.variant,
+        #     torch_dtype=weight_dtype,
+        # )
+        # # load attention processors
+        # pipeline.load_lora_weights(args.output_dir)
+        # print("last Loaded lora weights successfully from", args.output_dir)
 
-        # run inference
-        images = []
-        if args.validation_check and args.num_validation_images > 0:
-            images = log_validation(
-                    pipeline=pipeline,
-                    args=args,
-                    accelerator=accelerator,
-                    tag="Test",
-                    dataloader=validation_dataloader,
-                    is_final_validation=True
-                )
-            del pipeline
-            free_memory()
+        # # run inference
+        # images = []
+        # if args.validation_check and args.num_validation_images > 0:
+        #     images = log_validation(
+        #             pipeline=pipeline,
+        #             args=args,
+        #             accelerator=accelerator,
+        #             tag="Test",
+        #             dataloader=validation_dataloader,
+        #             is_final_validation=True
+        #         )
+        #     del pipeline
+        #     free_memory()
 
         if args.push_to_hub:
             save_model_card(
