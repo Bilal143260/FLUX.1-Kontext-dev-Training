@@ -1145,7 +1145,7 @@ def main(args):
                     accelerator=accelerator,
                     tag="Test",
                     dataloader=validation_dataloader,
-                    is_final_inference=True
+                    is_final_validation=True
                 )
             del pipeline
             free_memory()
