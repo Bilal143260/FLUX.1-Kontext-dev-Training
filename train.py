@@ -1114,6 +1114,9 @@ def main(args):
 
                         images = None
                         free_memory()
+                if global_step >= args.max_train_steps:
+                    logger.info(f"Reached max_train_steps ({args.max_train_steps}). Stopping training at step {global_step}.")
+                    break
 
         logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
         progress_bar.set_postfix(**logs)
