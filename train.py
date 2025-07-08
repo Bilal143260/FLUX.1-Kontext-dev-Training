@@ -687,12 +687,14 @@ def main(args):
     # Check the PR https://github.com/huggingface/diffusers/pull/8312 for detailed explanation.
     num_warmup_steps_for_scheduler = args.lr_warmup_steps * accelerator.num_processes
     if args.max_train_steps is None:
+        # User didn't provide max_train_steps, calculate from epochs
         len_train_dataloader_after_sharding = math.ceil(len(train_dataloader) / accelerator.num_processes)
         num_update_steps_per_epoch = math.ceil(len_train_dataloader_after_sharding / args.gradient_accumulation_steps)
         num_training_steps_for_scheduler = (
             args.num_train_epochs * accelerator.num_processes * num_update_steps_per_epoch
         )
     else:
+        # User provided max_train_steps - this takes priority
         num_training_steps_for_scheduler = args.max_train_steps * accelerator.num_processes
 
     lr_scheduler = get_scheduler(
@@ -704,7 +706,7 @@ def main(args):
         power=args.lr_power,
     )
 
-    # Prepare everything with our `accelerator`.
+    # Prepare everything with accelerator (this may change dataloader length)
     if args.train_text_encoder:
         (
             transformer,
@@ -724,26 +726,48 @@ def main(args):
             transformer, optimizer, train_dataloader, lr_scheduler
         )
 
-    # We need to recalculate our total training steps as the size of the training dataloader may have changed.
+    # AFTER accelerator.prepare() - recalculate with actual sharded dataloader
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+
     if args.max_train_steps is None:
+        # Only set max_train_steps if user didn't provide it
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-        if num_training_steps_for_scheduler != args.max_train_steps:
+        
+        # Check for consistency with scheduler calculation
+        expected_scheduler_steps = args.max_train_steps * accelerator.num_processes
+        if num_training_steps_for_scheduler != expected_scheduler_steps:
             logger.warning(
                 f"The length of the 'train_dataloader' after 'accelerator.prepare' ({len(train_dataloader)}) does not match "
-                f"the expected length ({len_train_dataloader_after_sharding}) when the learning rate scheduler was created. "
+                f"the expected length when the learning rate scheduler was created. "
+                f"Scheduler was configured for {num_training_steps_for_scheduler} total steps, "
+                f"but calculated {expected_scheduler_steps} steps from actual dataloader. "
                 f"This inconsistency may result in the learning rate scheduler not functioning properly."
             )
-    # Afterwards we recalculate our number of training epochs
-    args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
+        
+        # Recalculate epochs only if we derived max_train_steps from epochs
+        args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
+    else:
+        # User provided max_train_steps - calculate epochs needed to reach that step count
+        args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
+        
+        # Warn user if they won't complete even one epoch
+        if args.max_train_steps < num_update_steps_per_epoch:
+            logger.warning(
+                f"max_train_steps ({args.max_train_steps}) is less than one epoch "
+                f"({num_update_steps_per_epoch} steps). Training will stop before completing one epoch."
+            )
+        
+        logger.info(
+            f"User specified max_train_steps={args.max_train_steps}. "
+            f"Will train for {args.num_train_epochs} epochs to reach this step count."
+        )
 
-    # We need to initialize the trackers we use, and also store our configuration.
-    # The trackers initializes automatically on the main process.
+    # Initialize trackers
     if accelerator.is_main_process:
         tracker_name = "SAKS_Lora_Training_Kontext_dev"
         accelerator.init_trackers(tracker_name, config=vars(args))
 
-    # Train!
+    # Training info
     total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
 
     logger.info("***** Running training *****")
@@ -754,6 +778,8 @@ def main(args):
     logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
     logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
+    logger.info(f"  Steps per epoch (per process) = {num_update_steps_per_epoch}")
+    logger.info(f"  Scheduler configured for {num_training_steps_for_scheduler} total steps")
     global_step = 0
     first_epoch = 0
 
