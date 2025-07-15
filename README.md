@@ -34,14 +34,14 @@ cd FLUX.1-Kontext-dev-Training
 
 # Install dependencies
 pip install accelerate transformers diffusers wandb
-
-### Environment Setup
+```
+## Environment Setup
 
 Make sure you have access to the following:
 - A GPU with 80GB VRAM (H100 recommended)
 - Required datasets: "raresense/BGData" and "raresense/BGData_Validation" available on Hugging Face
 
-## Training Instructions
+### Training Instructions
 
 ### Configuration
 
@@ -88,13 +88,13 @@ Below are examples of the model's performance before and after fine-tuning.
 
 | Source Image | Generated Output | Prompt |
 |:------------:|:---------------------:|:----------------:|
-| ![Input](images/my-diagram.png) | ![Output](images/my-diagram.png) | Convert this sketch to realistic image |
+| ![Input](utilities/12728447551bf9ddce4823acfcf98554.jpg) | ![Output](utilities/image_-_2025-07-07T115303.426.webp) | Convert this sketch to realistic image |
 
 ### Example 2: Background Changer
 
 | Source Image | Generated Output | Prompt |
 |:------------:|:---------------------:|:----------------:|
-| ![Input](images/my-diagram.png) | ![Output](images/my-diagram.png) | Replace the background with Green Forest |
+| ![Input](utilities/image_-_2025-07-07T115303.426.webp) | ![Output](utilities/835c3962-08b6-4357-ab02-7a796d44ed94.jpeg) | Replace the background with Green Forest |
 
 ### Example 3: Garment Mask Only
 
@@ -120,5 +120,7 @@ input_image = load_image("path/to/image.png")
 image = pipe(
   image=input_image,
   prompt="Add a hat to the cat",
-  guidance_scale=2.5
+  guidance_scale=2.5,
+  generator=torch.Generator().manual_seed(42),
 ).images[0]
+image.save("output.png")
