@@ -96,11 +96,6 @@ Below are examples of the model's performance before and after fine-tuning.
 |:------------:|:---------------------:|:----------------:|
 | ![Input](utilities/image_-_2025-07-07T115303.426.webp) | ![Output](utilities/835c3962-08b6-4357-ab02-7a796d44ed94.jpeg) | Replace the background with Green Forest |
 
-### Example 3: Garment Mask Only
-
-| Source Image | Generated Output | Prompt |
-|:------------:|:---------------------:|:----------------:|
-| ![Input](images/my-diagram.png) | ![Output](images/my-diagram.png) | Replace the background with Green Forest |
 
 ## Model Inference
 
