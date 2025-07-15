@@ -84,7 +84,7 @@ To resume training from a checkpoint, uncomment the following line in `train_mod
 
 Below are examples of the model's performance before and after fine-tuning.
 
-### Example 1: Desighner Sketch to Image
+### Example 1: Design Sketch to Image
 
 | Source Image | Generated Output | Prompt |
 |:------------:|:---------------------:|:----------------:|
