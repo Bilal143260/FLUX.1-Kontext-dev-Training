@@ -104,6 +104,7 @@ def log_validation(
 ):
     logger.info(f"Running {tag}... \n ")
     pipeline = pipeline.to(accelerator.device)
+    
     # Use appropriate precision context
     if accelerator.mixed_precision == "bf16":
         autocast_ctx = torch.autocast("cuda", dtype=torch.bfloat16)
@@ -130,7 +131,7 @@ def log_validation(
             target_image = batch['target_image']
             
             # Process in smaller batches to avoid memory issues
-            validation_batch_size = max(1, args.train_batch_size // 2)  # Reduce batch size for validation
+            validation_batch_size = 1
             
             for i in range(0, len(prompt), validation_batch_size):
                 batch_prompt = prompt[i:i+validation_batch_size]
@@ -142,9 +143,9 @@ def log_validation(
                     height=args.height,
                     width=args.width,
                     image=batch_control_image, 
-                    # num_inference_steps=28,
+                    num_inference_steps=4,
                     generator=generator,
-                    # guidance_scale=30,
+                    guidance_scale=30,
                 ).images
                 
                 images.extend(result)
@@ -164,12 +165,11 @@ def log_validation(
                 formatted_images.append(wandb.Image(gen_img, caption=prompt))
             
             tracker.log({tracker_key: formatted_images})
-    
+    del images, prompts, control_images, target_images
     del pipeline
     free_memory()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    return images
 
 def main(args):
     if args.report_to == "wandb" and args.hub_token is not None:
@@ -581,7 +581,8 @@ def main(args):
         source_column_name=args.source_column,
         target_column_name=args.target_column,
         caption_column_name=args.caption_column,
-        size=(args.width, args.height)
+        size=(args.width, args.height),
+        split="train",  # Training split
     )
 
     train_dataloader = torch.utils.data.DataLoader(
@@ -596,7 +597,8 @@ def main(args):
             source_column_name=args.source_column,
             target_column_name=args.target_column,
             caption_column_name=args.caption_column,
-            size=(args.width, args.height)
+            size=(args.width, args.height),
+            split="test",  # Test split
         )
 
         validation_dataloader = torch.utils.data.DataLoader(
@@ -687,14 +689,12 @@ def main(args):
     # Check the PR https://github.com/huggingface/diffusers/pull/8312 for detailed explanation.
     num_warmup_steps_for_scheduler = args.lr_warmup_steps * accelerator.num_processes
     if args.max_train_steps is None:
-        # User didn't provide max_train_steps, calculate from epochs
         len_train_dataloader_after_sharding = math.ceil(len(train_dataloader) / accelerator.num_processes)
         num_update_steps_per_epoch = math.ceil(len_train_dataloader_after_sharding / args.gradient_accumulation_steps)
         num_training_steps_for_scheduler = (
             args.num_train_epochs * accelerator.num_processes * num_update_steps_per_epoch
         )
     else:
-        # User provided max_train_steps - this takes priority
         num_training_steps_for_scheduler = args.max_train_steps * accelerator.num_processes
 
     lr_scheduler = get_scheduler(
@@ -706,7 +706,7 @@ def main(args):
         power=args.lr_power,
     )
 
-    # Prepare everything with accelerator (this may change dataloader length)
+    # Prepare everything with our `accelerator`.
     if args.train_text_encoder:
         (
             transformer,
@@ -726,48 +726,26 @@ def main(args):
             transformer, optimizer, train_dataloader, lr_scheduler
         )
 
-    # AFTER accelerator.prepare() - recalculate with actual sharded dataloader
+    # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
-
     if args.max_train_steps is None:
-        # Only set max_train_steps if user didn't provide it
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-        
-        # Check for consistency with scheduler calculation
-        expected_scheduler_steps = args.max_train_steps * accelerator.num_processes
-        if num_training_steps_for_scheduler != expected_scheduler_steps:
+        if num_training_steps_for_scheduler != args.max_train_steps:
             logger.warning(
                 f"The length of the 'train_dataloader' after 'accelerator.prepare' ({len(train_dataloader)}) does not match "
-                f"the expected length when the learning rate scheduler was created. "
-                f"Scheduler was configured for {num_training_steps_for_scheduler} total steps, "
-                f"but calculated {expected_scheduler_steps} steps from actual dataloader. "
+                f"the expected length ({len_train_dataloader_after_sharding}) when the learning rate scheduler was created. "
                 f"This inconsistency may result in the learning rate scheduler not functioning properly."
             )
-        
-        # Recalculate epochs only if we derived max_train_steps from epochs
-        args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
-    else:
-        # User provided max_train_steps - calculate epochs needed to reach that step count
-        args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
-        
-        # Warn user if they won't complete even one epoch
-        if args.max_train_steps < num_update_steps_per_epoch:
-            logger.warning(
-                f"max_train_steps ({args.max_train_steps}) is less than one epoch "
-                f"({num_update_steps_per_epoch} steps). Training will stop before completing one epoch."
-            )
-        
-        logger.info(
-            f"User specified max_train_steps={args.max_train_steps}. "
-            f"Will train for {args.num_train_epochs} epochs to reach this step count."
-        )
+    # Afterwards we recalculate our number of training epochs
+    args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
 
-    # Initialize trackers
+    # We need to initialize the trackers we use, and also store our configuration.
+    # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
-        tracker_name = "SAKS_Lora_Training_Kontext_dev"
+        tracker_name = "SAKS_context_blur_instructive"
         accelerator.init_trackers(tracker_name, config=vars(args))
 
-    # Training info
+    # Train!
     total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
 
     logger.info("***** Running training *****")
@@ -778,8 +756,6 @@ def main(args):
     logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
     logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
-    logger.info(f"  Steps per epoch (per process) = {num_update_steps_per_epoch}")
-    logger.info(f"  Scheduler configured for {num_training_steps_for_scheduler} total steps")
     global_step = 0
     first_epoch = 0
 
@@ -1054,76 +1030,59 @@ def main(args):
                 progress_bar.update(1)
                 global_step += 1
 
-                if accelerator.is_main_process:
-                    if global_step % args.checkpointing_steps == 0:
-                        # _before_ saving state, check if this save would set us over the `checkpoints_total_limit`
-                        if args.checkpoints_total_limit is not None:
-                            checkpoints = os.listdir(args.output_dir)
-                            checkpoints = [d for d in checkpoints if d.startswith("checkpoint")]
-                            checkpoints = sorted(checkpoints, key=lambda x: int(x.split("-")[1]))
+                if global_step % args.checkpointing_steps == 0:
+                    # _before_ saving state, check if this save would set us over the `checkpoints_total_limit`
+                    if args.checkpoints_total_limit is not None:
+                        checkpoints = os.listdir(args.output_dir)
+                        checkpoints = [d for d in checkpoints if d.startswith("checkpoint")]
+                        checkpoints = sorted(checkpoints, key=lambda x: int(x.split("-")[1]))
 
-                            # before we save the new checkpoint, we need to have at _most_ `checkpoints_total_limit - 1` checkpoints
-                            if len(checkpoints) >= args.checkpoints_total_limit:
-                                num_to_remove = len(checkpoints) - args.checkpoints_total_limit + 1
-                                removing_checkpoints = checkpoints[0:num_to_remove]
+                        # before we save the new checkpoint, we need to have at _most_ `checkpoints_total_limit - 1` checkpoints
+                        if len(checkpoints) >= args.checkpoints_total_limit:
+                            num_to_remove = len(checkpoints) - args.checkpoints_total_limit + 1
+                            removing_checkpoints = checkpoints[0:num_to_remove]
 
-                                logger.info(
-                                    f"{len(checkpoints)} checkpoints already exist, removing {len(removing_checkpoints)} checkpoints"
-                                )
-                                logger.info(f"removing checkpoints: {', '.join(removing_checkpoints)}")
+                            logger.info(
+                                f"{len(checkpoints)} checkpoints already exist, removing {len(removing_checkpoints)} checkpoints"
+                            )
+                            logger.info(f"removing checkpoints: {', '.join(removing_checkpoints)}")
 
-                                for removing_checkpoint in removing_checkpoints:
-                                    removing_checkpoint = os.path.join(args.output_dir, removing_checkpoint)
-                                    shutil.rmtree(removing_checkpoint)
+                            for removing_checkpoint in removing_checkpoints:
+                                removing_checkpoint = os.path.join(args.output_dir, removing_checkpoint)
+                                shutil.rmtree(removing_checkpoint)
 
-                        save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
-                        accelerator.save_state(save_path)
-                        logger.info(f"Saved state to {save_path}")
+                    save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
+                    accelerator.save_state(save_path)
+                    logger.info(f"Saved state to {save_path}")
 
-                    # Move validation check HERE - inside the sync_gradients block
-                    if args.validation_check and global_step % args.validation_steps == 0:
-                        # create pipeline
-                        free_memory()
-                        if torch.cuda.is_available():
-                            torch.cuda.empty_cache()
-                        if not args.train_text_encoder:
-                            text_encoder_one, text_encoder_two = load_text_encoders(text_encoder_cls_one, text_encoder_cls_two)
-                            text_encoder_one.to(weight_dtype)
-                            text_encoder_two.to(weight_dtype)
-                        pipeline = FluxKontextPipeline.from_pretrained(
-                            args.pretrained_model_name_or_path,
-                            vae=vae,
-                            text_encoder=unwrap_model(text_encoder_one),
-                            text_encoder_2=unwrap_model(text_encoder_two),
-                            transformer=unwrap_model(transformer),
-                            revision=args.revision,
-                            variant=args.variant,
-                            torch_dtype=weight_dtype,
-                        )
+                logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+                progress_bar.set_postfix(**logs)
+                accelerator.log(logs, step=global_step)
+            
+                # Run validation every args.validation_steps steps (e.g., every 5 steps)
+                if global_step % args.validation_steps == 0:
+                    pipeline = FluxKontextPipeline.from_pretrained(
+                        args.pretrained_model_name_or_path,
+                        transformer=accelerator.unwrap_model(transformer),
+                        torch_dtype=weight_dtype,
+                        vae=vae,
+                        tokenizer=tokenizer_one,
+                        tokenizer_2=tokenizer_two,
+                        text_encoder=text_encoder_one,
+                        text_encoder_2=text_encoder_two,
+                    )
+                    
+                    log_validation(
+                        pipeline=pipeline,
+                        args=args,
+                        accelerator=accelerator,
+                        dataloader=validation_dataloader,
+                        tag="validation",
+                    )
 
-                        images = log_validation(
-                            pipeline=pipeline,
-                            args=args,
-                            accelerator=accelerator,
-                            tag="validation",
-                            dataloader=validation_dataloader
-                        )
-                        if not args.train_text_encoder:
-                            del text_encoder_one, text_encoder_two
-                            free_memory()
+            if global_step >= args.max_train_steps:
+                break
 
-                        images = None
-                        free_memory()
-                if global_step >= args.max_train_steps:
-                    logger.info(f"Reached max_train_steps ({args.max_train_steps}). Stopping training at step {global_step}.")
-                    break
-
-        logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
-        progress_bar.set_postfix(**logs)
-        accelerator.log(logs, step=global_step)
-
-        if global_step >= args.max_train_steps:
-            break
 
     # Save the lora layers
     accelerator.wait_for_everyone()
