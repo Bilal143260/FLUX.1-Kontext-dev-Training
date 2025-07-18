@@ -16,13 +16,17 @@ class KontextDataset(Dataset):
         target_column_name,
         caption_column_name,
         size=(512, 512),
-        max_samples=None,
+        split="train",  # New parameter: "train" or "test"
+        test_samples=30,  # Number of samples for test split
+        max_samples=None,  # Limit to a maximum number of samples
     ):
         self.dataset_name = dataset_name
         self.source_column_name = source_column_name
         self.target_column_name = target_column_name
         self.caption_column_name = caption_column_name
         self.size = size
+        self.split = split
+        self.test_samples = test_samples
         if self.caption_column_name is None:
             self.custom_instance_prompts = False
         else:   
@@ -36,6 +40,18 @@ class KontextDataset(Dataset):
                 "You are trying to load your data using the datasets library. Please install it via `pip install datasets`."
             )
         self.dataset = load_dataset(self.dataset_name)
+        # Handle different splits based on the split parameter
+        if self.split == "train":
+            # For training: load all available samples
+            self._length = len(self.dataset["train"])
+        elif self.split == "test":
+            # For test: limit to test_samples (default 30)
+            available_samples = len(self.dataset["train"])
+            samples_to_use = min(self.test_samples, available_samples)
+            self.dataset["train"] = self.dataset["train"].select(range(samples_to_use))
+            self._length = samples_to_use
+        else:
+            raise ValueError(f"Invalid split '{self.split}'. Must be 'train' or 'test'.")
         # Limit to a maximum of max_samples samples if available
         if max_samples is not None and max_samples < len(self.dataset["train"]):
             self.dataset["train"] = self.dataset["train"].select(range(max_samples))
